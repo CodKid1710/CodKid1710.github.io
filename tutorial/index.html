@@ -1,50 +1,67 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Personal Testing Area</title>
+    <link rel="stylesheet" href="../style.css" />
+  </head>
+  <body>
     <header>
-        <title>Personal Testing Area</title>
+      <img src="EzraIcon.png" alt="Profile Picture" width="100" />
+      <h1>Ezra Clintoc</h1>
+      <p>Personal Testing Area</p>
     </header>
-    <body>
-        <img src="../images/EzraIcon.png" alt="Profile Picture" width="100" />
+    <br />
 
-        <h1>Ezra Clintoc</h1>
+    <div class="container">
+      <div class="card">
+        <a href="https://www.youtube.com/channel/UCQugK6fGQNq9ldO01CxvDjw"
+          >Youtube</a
+        >
+        <br />
+        <br />
+        <a href="https://www.github.com/CodKid1710">Github</a>
+        <br />
 
-        <a href="https://www.youtube.com/channel/UCQugK6fGQNq9ldO01CxvDjw">Youtube</a>
-        <br/> <br/>
-        <a href="https://www.github.com">Github</a>
-        <br/>
-
-        <h2>My Favorite Movies</h2>
-        <table border="1">
-            <tr>
-                <th>Movie</th>
-                <th>Ezra's Score</th>
-            </tr>
-            <tr> 
-                <td>A Minecraft Movie</td>
-                <td>10/10</td>
-            </tr>
-            <tr>
-                <td>Interstellar</td>
-                <td>9/10</td>
-            </tr>
-            <tr>
-                <td>Starwars</td>
-                <td>7/10</td>
-            </tr>
+        <h3>My Favorite Movies</h3>
+        <table style="border: 1px solid black">
+          <tr>
+            <th>Movie</th>
+            <th>Ezra's Score</th>
+          </tr>
+          <tr>
+            <td>A Minecraft Movie</td>
+            <td>10/10</td>
+          </tr>
+          <tr>
+            <td>Interstellar</td>
+            <td>9/10</td>
+          </tr>
+          <tr>
+            <td>Starwars</td>
+            <td>7/10</td>
+          </tr>
         </table>
 
-        <br>
+        <br />
         <h2>Contact Me</h2>
-        <form action="" method="post">
-            <label for="contact-email">Email</label>   
-            <input type="email" placeholder="Email" id="contact-email" required>
-            
-            <br>
-            <label for="message">Message</label>
-            <input type="text" placeholder="Message" id="message" required>
+        <form action="" method="post" style="padding: 0.1rem">
+          <label for="contact-email">Email</label>
+          <input type="email" placeholder="Email" id="contact-email" required />
 
-            <br>
-            <button type="submit">Contact us</button>
+          <br />
+          <label for="message">Message</label>
+          <input type="text" placeholder="Message" id="message" required />
+
+          <br />
+          <button type="submit">Contact us</button>
         </form>
-    </body>
+      </div>
+    </div>
+    <footer>
+      <p>&copy; 2025 Ezra Clintoc</p>
+      <a href="../index.html">Back to Home</a>
+    </footer>
+  </body>
 </html>
