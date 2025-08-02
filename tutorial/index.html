@@ -32,21 +32,20 @@
         <section>
           <div class="card">
             <h2>Contact Me</h2>
-            <form action="" method="post" style="padding: 0.1rem">
+            <form action="" method="get" style="padding: 0.1rem">
               <label for="contact-email">Email</label>
               <input
                 type="email"
                 placeholder="Email"
                 id="contact-email"
-                required
               />
 
               <br />
-              <label for="message">Message</label>
-              <input type="text" placeholder="Message" id="message" required />
+              <label for="contact-message">Message</label>
+              <input type="text" placeholder="Message" id="contact-message" required />
 
               <br />
-              <button type="submit">Contact us</button>
+              <button type="submit" id="contact-submit">Contact us</button>
             </form>
           </div>
         </section>
@@ -75,6 +74,9 @@
         </div>
         <div class="card">
           <h2>Rubix Cube Face Challenge</h2>
+          <button id="rubix-button">Click to Generate A Random Rubix Face</button>
+          <br />
+          <br />
           <div class="rubix-face">
             <div style="background-color: #0082df"></div>
             <div style="background-color: #ffff00"></div>
@@ -93,5 +95,6 @@
       <p>&copy; 2025 Ezra Clintoc</p>
       <a href="../index.html">Back to Home</a>
     </footer>
+    <script src="main.js"></script>
   </body>
 </html>

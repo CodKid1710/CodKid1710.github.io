@@ -69,6 +69,31 @@ header img {
   border-radius: 3px;
 }
 
+.card button {
+  background-color: var(--accent);
+  color: var(--bg);
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.card button:hover {
+  background-color: var(--bg);
+  color: var(--accent);
+}
+
+.card input {
+  width: 100%;
+  padding: 0.3rem;
+  margin: 0.3rem;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  background-color: var(--card);
+  color: var(--text);
+}
+
 .popup-parent {
   position: relative;
   display: inline-block;
@@ -113,7 +138,7 @@ header img {
   color: var(--accent);
   padding: 0.1rem 0.5rem;
   text-decoration: none;
-  transition: 0.5s;
+  transition: 0s;
 }
 
 #top-menu-bar a:visited {
@@ -150,6 +175,7 @@ header img {
   border: 2px solid #0d0d33;
   padding-top: 100%;;
   border-radius: 0.2rem;
+  transition: 1s;
 }
 
 footer {
