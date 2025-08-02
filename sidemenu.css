@@ -1,0 +1,11 @@
+#content {
+  display: flex;
+  flex-direction: row;
+}
+#sidemenu {
+  flex: 1;
+  margin-right: 1.5rem;
+}
+#main {
+  flex: 3;
+}

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sidemenu Example</title>
+
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        header, footer, #content {
+            padding: 4px;
+            margin: 2px;
+            border: 5px solid #2196F3;
+            background-color: #d3eafd;
+            color: black;
+        }
+        #content {
+            display: flex;
+            flex-direction: row;
+        }
+        #content div, #sidemenu section {
+            padding: 4px;
+            margin: 2px;
+            border: 2px solid red;
+        }
+        #sidemenu {
+            flex: 1
+        }
+        #main {
+            flex: 3;
+        }
+        #sidemenu section {
+            border: 2px solid green;
+        }
+    </style>
+</head>
+<body>
+    <header>Header</header>
+
+    <section id="content"> 
+        <div id="sidemenu">
+            <section>Menu 1</section>
+            <section>Menu 2</section>
+        </div>
+        <div id="main">Main Content</div>
+    </section>
+
+    <footer>Footer</footer>
+</body>
+</html>
