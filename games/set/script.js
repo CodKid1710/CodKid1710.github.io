@@ -36,6 +36,12 @@ class Card {
       shape: this.shape
     };
   }
+  setRawProperties(props) {
+    this.number = props[0];
+    this.color = props[1];
+    this.fill = props[2];
+    this.shape = props[3];
+  }
   render(two, cardWidth = 80, cardHeight = 120) {
     const h = cardHeight / 6;
     const w = cardWidth / 3;
@@ -118,7 +124,6 @@ function startGame() {
   // Responsive grid
   const rows = 3, cols = 4;
   const cardHeight = (height) / (rows + 1) / 1.2;
-  //const cardWidth = (width-cols*padding) / (cols + 1) / 1.2;
   const cardWidth = cardHeight * 1/1.5
 
   cards = [];
@@ -172,6 +177,10 @@ function startGame() {
             mainText.size = Math.max(width, height) / 20;
             mainText.stroke = "#24a30eff";
             mainText.linewidth = 1;
+
+            selectedCards.forEach(sCard => {
+              sCard.setRawProperties(convertToProperties(Math.floor(Math.random() * 81)));
+            });
           } else {
             mainText = two.makeText("Set is Incorrect. -1 Point", width / 2, height / 2);
             mainText.fill = "#ff1414ff";
