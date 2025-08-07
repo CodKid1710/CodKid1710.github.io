@@ -1,6 +1,7 @@
 const PUSHER_APP_KEY = "9eba34026528cc57f0f4";
 const PUSHER_CLUSTER = "us2";
-const AUTH_ENDPOINT = "https://pusher-auth-server-six.vercel.app/api/pusher-auth"
+const AUTH_ENDPOINT =
+  "https://pusher-auth-server-six.vercel.app/api/pusher-auth";
 
 Pusher.logToConsole = true;
 
@@ -25,7 +26,7 @@ if (isGamePage) {
 }
 
 class Card {
-  constructor(props, x, y) {
+  constructor(props) {
     this.number = props[0];
     this.color = props[1];
     this.fill = props[2];
@@ -33,28 +34,18 @@ class Card {
 
     this.selected = false;
     this.card = null;
-
-    this.x = x || 0;
-    this.y = y || 0;
-
-    this.cardWidth = null;
-    this.cardHeight = null;
   }
-  getProperties() {
-    // Convert properties to human-readable names
 
+  getProperties() {
     return {
       number: this.number,
-      color: this.color == 1 ? "red" : this.color == 2 ? "green" : "purple", // red, green, purple
-      fill: this.fill == 1 ? "filled" : this.fill == 2 ? "empty" : "stripped", // filled, striped, empty
-      shape: this.shape == 1 ? "rect" : this.shape == 2 ? "ellipse" : "diamond", // oval, squiggle, diamond
+      color: this.color == 1 ? "red" : this.color == 2 ? "green" : "purple",
+      fill: this.fill == 1 ? "filled" : this.fill == 2 ? "empty" : "stripped",
+      shape: this.shape == 1 ? "rect" : this.shape == 2 ? "ellipse" : "diamond",
     };
   }
-  getRawProperties() {
-    // Return raw properties without converting to color or shape names
-    // This is useful for internal logic or comparisons
-    // Returns an object with raw values
 
+  getRawProperties() {
     return {
       number: this.number,
       color: this.color,
@@ -62,49 +53,43 @@ class Card {
       shape: this.shape,
     };
   }
+
   setRawProperties(props) {
     this.number = props[0];
     this.color = props[1];
     this.fill = props[2];
     this.shape = props[3];
   }
-  render(two, cardWidth = 80, cardHeight = 120) {
+
+  render(two, x, y) {
     const h = cardHeight / 6;
     const w = cardWidth / 3;
     const colors = ["red", "green", "purple"];
     this.card = two.makeGroup();
-    this.cardWidth = cardWidth; // Store for hit detection
-    this.cardHeight = cardHeight;
 
     // Card background
-    const card = two.makeRoundedRectangle(
-      this.x,
-      this.y,
-      cardWidth,
-      cardHeight,
-      5
-    );
+    const card = two.makeRoundedRectangle(x, y, cardWidth, cardHeight, 5);
     card.fill = "white";
     card.stroke = "black";
     card.linewidth = 2;
     this.card.add(card);
 
-    // Add shapes to the group
+    // Add shapes
     for (let i = 0; i < this.number; i++) {
-      let cy = this.y + (i - (this.number - 1) / 2) * h * 1.5;
+      const cy = y + (i - (this.number - 1) / 2) * h * 1.5;
       let shape;
       if (this.shape === 1) {
-        shape = two.makeRectangle(this.x, cy, w, h);
+        shape = two.makeRectangle(x, cy, w, h);
       } else if (this.shape === 2) {
-        shape = two.makeEllipse(this.x, cy, w / 2, h / 2);
+        shape = two.makeEllipse(x, cy, w / 2, h / 2);
       } else if (this.shape === 3) {
         shape = two.makePath(
           [
-            new Two.Anchor(this.x, cy + h / 2),
-            new Two.Anchor(this.x + w / 2, cy),
-            new Two.Anchor(this.x, cy - h / 2),
-            new Two.Anchor(this.x - w / 2, cy),
-            new Two.Anchor(this.x, cy + h / 2),
+            new Two.Anchor(x, cy + h / 2),
+            new Two.Anchor(x + w / 2, cy),
+            new Two.Anchor(x, cy - h / 2),
+            new Two.Anchor(x - w / 2, cy),
+            new Two.Anchor(x, cy + h / 2),
           ],
           true
         );
@@ -121,16 +106,21 @@ class Card {
       shape.linewidth = 4;
       this.card.add(shape);
     }
+
+    // Store coordinates on the card group for hit testing
+    this.card._center = { x, y };
   }
+
   contains(x, y) {
-    // Use the card's center and dimensions for hit detection
-    // You must store cardWidth and cardHeight in the Card instance during render
-    if (!this.card || !this.cardWidth || !this.cardHeight) return false;
+    if (!this.card || !this.card._center) return false;
+    const cx = this.card._center.x;
+    const cy = this.card._center.y;
+
     return (
-      x >= this.x - this.cardWidth / 2 &&
-      x <= this.x + this.cardWidth / 2 &&
-      y >= this.y - this.cardHeight / 2 &&
-      y <= this.y + this.cardHeight / 2
+      x >= cx - cardWidth / 2 &&
+      x <= cx + cardWidth / 2 &&
+      y >= cy - cardHeight / 2 &&
+      y <= cy + cardHeight / 2
     );
   }
 }
@@ -138,6 +128,16 @@ class Card {
 let gameContainer = document.getElementById("game-container");
 let cards = []; // Array to hold card instances
 let selectedCards = [];
+
+// Get container size
+const width = gameContainer.clientWidth || 800;
+const height = gameContainer.clientHeight || 600;
+
+// Responsive grid
+const rows = 3;
+const cols = 4;
+const cardHeight = height / (rows + 1) / 1.2;
+const cardWidth = (cardHeight * 1) / 1.5;
 
 function createGame() {
   gameId = makeid(4);
@@ -202,8 +202,8 @@ function connectToGame() {
 
 function sendGameState() {
   if (isHost && channel) {
-    let indexs = []
-    cards.forEach(card => {
+    let indexs = [];
+    cards.forEach((card) => {
       indexs.push(convertToIndex(card.getRawProperties()));
     });
     channel.trigger("client-game-state", { indexs });
@@ -215,21 +215,11 @@ function startGame() {
   gameContainer.innerHTML = ""; // Clear previous content
   gameContainer.className = "grid-container"; // Add grid styling
 
-  // Get container size
-  const width = gameContainer.clientWidth || 800;
-  const height = gameContainer.clientHeight || 600;
-
   const two = new Two({
     width: width,
     height: height,
     autostart: true,
   }).appendTo(gameContainer);
-
-  // Responsive grid
-  const rows = 3,
-    cols = 4;
-  const cardHeight = height / (rows + 1) / 1.2;
-  const cardWidth = (cardHeight * 1) / 1.5;
 
   console.log(cards);
   for (let i = 0; i < rows; i++) {
@@ -245,7 +235,7 @@ function startGame() {
         );
       }
 
-      cards[IX(i, j)].render(two, cardWidth, cardHeight); // Pass size
+      cards[IX(i, j)].render(two, x, y); // Pass size
     }
   }
 
@@ -384,13 +374,15 @@ function convertToProperties(idx) {
 }
 
 function convertToIndex(card) {
-  return (((card.number - 1) * 3 + (card.color - 1)) * 3 + (card.fill - 1)) * 3 + (card.shape - 1);
+  return (
+    (((card.number - 1) * 3 + (card.color - 1)) * 3 + (card.fill - 1)) * 3 +
+    (card.shape - 1)
+  );
 }
 
 function makeid(length) {
   var result = "";
-  var characters =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  var characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   var charactersLength = characters.length;
   for (var i = 0; i < length; i++) {
     result += characters.charAt(Math.floor(Math.random() * charactersLength));
