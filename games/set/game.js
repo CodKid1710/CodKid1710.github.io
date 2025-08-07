@@ -1,3 +1,16 @@
+const PUSHER_APP_KEY = "9eba34026528cc57f0f4";
+const PUSHER_CLUSTER = "us2";
+
+Pusher.logToConsole = true;
+
+var pusher = new Pusher("9eba34026528cc57f0f4", {
+  cluster: "us2",
+});
+
+let channel = null;
+let gameId = "";
+let isHost = false;
+
 class Card {
   constructor(props, x, y) {
     this.number = props[0];
@@ -100,9 +113,54 @@ class Card {
 }
 
 let gameContainer = document.getElementById("game-container");
-
 let cards = []; // Array to hold card instances
 let selectedCards = [];
+
+function createGame() {
+  gameId = makeid(4);
+  isHost = true;
+  connectToGame(gameId);
+}
+
+
+
+function connectToGame() {
+  channel = pusher.subscribe(`id-${gameId}`);
+
+  channel.bind("pusher:subscription_succeeded", () => {
+    window.location.replace(`game.html?gameId=${gameId}&host=${isHost}`);
+    console.log(`Connect to game with Id ${gameId}`);
+
+    if (!isHost) {
+      channel.trigger("client-joined", { msg: "Client joined" });
+    }
+
+    startGame();
+  });
+
+  if (isHost) {
+    channel.bind("client-joined", (data) => {
+      console.log("Client Joined:", data);
+      sendMessage("Client joined the game.");
+      sendGameState();
+    });
+
+    channel.bind("client-set", (idxs) => {
+      console.log("Client found a set");
+    });
+  } else {
+    channel.bind("client-game-state", (data) => {
+      cards = data;
+    });
+  }
+}
+
+function sendGameState() {
+  if (isHost && channel) {
+    channel.trigger("client-game-state", { cards });
+  }
+}
+
 
 function startGame() {
   gameContainer.style.display = "block";
@@ -119,24 +177,23 @@ function startGame() {
     autostart: true,
   }).appendTo(gameContainer);
 
-  console.log(width, height);
-
   // Responsive grid
   const rows = 3, cols = 4;
   const cardHeight = (height) / (rows + 1) / 1.2;
   const cardWidth = cardHeight * 1/1.5
 
-  cards = [];
   for (let i = 0; i < rows; i++) {
     for (let j = 0; j < cols; j++) {
       // Center cards in grid
       const x = ((j + 1) * cardWidth*1.2)+width/2-3*cardWidth;
       const y = ((i + 1) * cardHeight*1.2)+height/2-2.4*cardHeight;
-      cards[IX(i, j)] = new Card(
-        convertToProperties(Math.floor(Math.random() * 81)),
-        x,
-        y
-      );
+      if (isHost) {
+        cards[IX(i, j)] = new Card(
+          convertToProperties(Math.floor(Math.random() * 81)),
+          x,
+          y
+        );
+      }
       cards[IX(i, j)].render(two, cardWidth, cardHeight); // Pass size
     }
   }
@@ -252,8 +309,6 @@ function checkSet() {
   return 1;
 }
 
-startGame();
-
 // Utils
 function IX(x, y) {
   // Convert x and y to a unique index
@@ -268,4 +323,21 @@ function convertToProperties(idx) {
     idx = Math.floor(idx / 3);
   }
   return props; // [prop1, prop2, prop3, prop4]
+}
+
+function makeid(length) {
+  var result = "";
+  var characters =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  var charactersLength = characters.length;
+  for (var i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
+}
+
+function addMessage(text) {
+  const li = document.createElement("li");
+  li.textContent = text;
+  document.getElementById("messages").appendChild(li);
 }
