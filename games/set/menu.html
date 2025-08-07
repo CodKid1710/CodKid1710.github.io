@@ -1,57 +1,63 @@
+<!-- menu.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Set | Game by Ezra Clintoc</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Set | Game by Ezra Clintoc</title>
 
-    <link rel="stylesheet" href="../../style.css">
-    <style>
-        .card {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1rem;
-            padding: 1rem;
-        }
+  <link rel="stylesheet" href="../../style.css" />
+  <style>
+    .card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+    }
 
-        button {
-            width: 400px;
-            height: 100px;
-            font-size: 2rem;
-            text-align: center;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-        }
+    button {
+      width: 400px;
+      height: 100px;
+      font-size: 2rem;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
 
-        button h2 {
-            margin: 0;
-            font-size: 2rem;
-        }
-    </style>
+    button h2 {
+      margin: 0;
+      font-size: 2rem;
+    }
+
+    #join-input {
+      font-size: 1.2rem;
+      padding: 0.5rem;
+      text-transform: uppercase;
+    }
+  </style>
 </head>
 <body>
-    <header>
-        <h1>Set</h1>
-        <p>By Ezra Clintoc</p>
-    </header>
-    <main id="content" class="container">
-        <div class="card" 
-            style="
-            flex-direction: column;
-            align-items: center;">
-            <button onclick="createGame()"><h2>Create Game</h2></button><br>
-            <button onclick="joinGame()"><h2>Join Game</h2></button><br>
-            <button><h2>How To Play</h2></button><br>
-            <button><h2>Options</h2></button><br>
-        </div>
-    </main>
-    <footer>
-        <p>&copy; 2025 Ezra Clintoc</p>
-        <a href="../../index.html">Back to home</a>
-    </footer>
-    <script src="game.js"></script>
+  <header>
+    <h1>Set</h1>
+    <p>By Ezra Clintoc</p>
+  </header>
+  <main id="content" class="container">
+    <div class="card">
+      <button onclick="createGame()"><h2>Create Game</h2></button>
+      <button onclick="joinGame()"><h2>Join Game</h2></button>
+      <input id="join-input" maxlength="4" placeholder="Game ID">
+    </div>
+  </main>
+  <footer>
+    <p>&copy; 2025 Ezra Clintoc</p>
+    <a href="../../index.html">Back to home</a>
+  </footer>
+
+  <!-- Add Pusher and game.js -->
+  <script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
+  <script src="game.js"></script>
 </body>
 </html>
