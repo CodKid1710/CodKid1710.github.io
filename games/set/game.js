@@ -89,6 +89,7 @@ function createGame() {
     `game.html?gameId=${gameId}&host=${isHost}&name=${username}`
   );
   connectToGame(gameId);
+  updatePlayers(players);
 }
 
 /**
@@ -120,15 +121,15 @@ function connectToGame() {
   players.push(new Player(username, userId));
   console.log(username);
   pusher = new Pusher(PUSHER_APP_KEY, {
-  cluster: PUSHER_CLUSTER,
-  authEndpoint: AUTH_ENDPOINT,
-  auth: {
-    params: {
-      user_id: userId,
-      name: username,
+    cluster: PUSHER_CLUSTER,
+    authEndpoint: AUTH_ENDPOINT,
+    auth: {
+      params: {
+        user_id: userId,
+        name: username,
+      },
     },
-  },
-});
+  });
 
   channel = pusher.subscribe(`presence-${gameId}`);
 
@@ -179,40 +180,38 @@ function connectToGame() {
       let valid = checkSet(_selectedCards);
       let userId = data.userId;
       channel.trigger("client-found-set-response", { valid, userId });
-    });
-
-    // Client-specific listeners
-  } else {
-    channel.bind("client-game-state", (data) => {
-      if (cards.length === 0) {
-        for (let i = 0; i < data.indexs.length; i++) {
-          cards.push(new Card(convertToProperties(data.indexs[i])));
-        }
-        startGame();
-      } else {
-        for (let i = 0; i < data.indexs.length; i++) {
-          cards[i] = new Card(convertToProperties(data.indexs[i]));
-        }
-      }
-      renderGame();
-
-      players = [];
-      data.players.forEach(player => {
-        players.push(new Player(player.name, player.userId, player.score))
-      });
+      updatePlayerScore(userId, valid);
       updatePlayers(players);
     });
   }
+  channel.bind("client-game-state", (data) => {
+    if (cards.length === 0) {
+      for (let i = 0; i < data.indexs.length; i++) {
+        cards.push(new Card(convertToProperties(data.indexs[i])));
+      }
+      startGame();
+    } else {
+      for (let i = 0; i < data.indexs.length; i++) {
+        cards[i] = new Card(convertToProperties(data.indexs[i]));
+      }
+    }
+    renderGame();
+
+    players = [];
+    data.players.forEach((player) => {
+      players.push(new Player(player.name, player.userId, player.score));
+    });
+    updatePlayers(players);
+  });
 
   channel.bind("client-found-set-response", (data) => {
-    console.log("hello");
     let valid = data.valid;
-    let userId = data.userId;
+    let _userId = data.userId;
 
-    updatePlayerScore(userId, valid);
+    updatePlayerScore(_userId, valid);
     updatePlayers(players);
-    sendMessage(userId + " recived " + valid + "points");
-    if (userId == userId) {
+    sendMessage(findPlayer(_userId).name + " recived " + valid + "points");
+    if (userId == _userId) {
       let mainText = null;
 
       if (valid === 1) {
@@ -250,14 +249,11 @@ function connectToGame() {
 
 function updatePlayerScore(userId, delta) {
   // Find the player by ID
-  const player = players.find(p => p.userId === userId);
+  const player = players.find((p) => p.userId === userId);
 
   if (player) {
     player.score += delta; // Add or subtract based on delta
     console.log(`Updated ${player.name}'s score to ${player.score}`);
-
-    updateScoreboard(players); // Refresh UI
-    sendGameState(); // Keep everyone in sync
   } else {
     console.warn(`Player with ID ${userId} not found.`);
   }
@@ -290,7 +286,6 @@ function updatePlayers(players) {
   });
 }
 
-
 /**
  * Send current game state (card data) to all clients
  */
@@ -303,7 +298,6 @@ function sendGameState() {
 
 function renderGame() {
   // Generate and render cards
-  console.log("started");
   for (let i = 0; i < rows; i++) {
     for (let j = 0; j < cols; j++) {
       const x = (j + 1) * cardWidth * 1.2 + width / 2 - 3 * cardWidth;
@@ -311,7 +305,8 @@ function renderGame() {
 
       if (isHost) {
         cards[IX(i, j)] = new Card(
-          convertToProperties(Math.floor(Math.random() * 81)));
+          convertToProperties(Math.floor(Math.random() * 81))
+        );
       }
 
       cards[IX(i, j)].render(x, y);
@@ -331,12 +326,9 @@ function startGame() {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
-    console.log("Click", x, y, cards[4].contains(x, y));
-
     cards.forEach((card) => {
       if (card.contains(x, y)) {
         card.selected = !card.selected;
-        console.log("selected")
 
         if (card.selected) {
           card.card.children[0].stroke = "red";
@@ -456,46 +448,51 @@ function sendMessage(text) {
   document.getElementById("messages").appendChild(li);
 }
 
+function findPlayer(userId) {
+  return players.find((p) => p.userId === userId);
+}
+
 // ========================
 // CARD CLASS (uses _center for hit testing)
 // ========================
 class Card {
   constructor(props) {
     this.number = props[0];
-    this.color  = props[1];
-    this.fill   = props[2];
-    this.shape  = props[3];
+    this.color = props[1];
+    this.fill = props[2];
+    this.shape = props[3];
 
     this.selected = false;
-    this.card     = null; // Two.js group
+    this.card = null; // Two.js group
     this._center = null;
-    this.x;           // last render x
-    this.y;           // last render y
+    this.x; // last render x
+    this.y; // last render y
   }
 
   getProperties() {
     return {
       number: this.number,
-      color:  this.color === 1 ? "red" : this.color === 2 ? "green" : "purple",
-      fill:   this.fill === 1 ? "filled" : this.fill === 2 ? "empty" : "striped",
-      shape:  this.shape === 1 ? "rect" : this.shape === 2 ? "ellipse" : "diamond",
+      color: this.color === 1 ? "red" : this.color === 2 ? "green" : "purple",
+      fill: this.fill === 1 ? "filled" : this.fill === 2 ? "empty" : "striped",
+      shape:
+        this.shape === 1 ? "rect" : this.shape === 2 ? "ellipse" : "diamond",
     };
   }
 
   getRawProperties() {
     return {
       number: this.number,
-      color:  this.color,
-      fill:   this.fill,
-      shape:  this.shape,
+      color: this.color,
+      fill: this.fill,
+      shape: this.shape,
     };
   }
 
   setRawProperties(props) {
     this.number = props[0];
-    this.color  = props[1];
-    this.fill   = props[2];
-    this.shape  = props[3];
+    this.color = props[1];
+    this.fill = props[2];
+    this.shape = props[3];
   }
 
   /**
@@ -508,7 +505,6 @@ class Card {
       console.error("Two.js instance (two) is not available.");
       return;
     }
-    console.log(this);
     // Save position
     this.x = x;
     this.y = y;
@@ -552,21 +548,23 @@ class Card {
         continue;
       }
 
-      shape.fill = this.fill === 1 ? colors[this.color - 1]
-                  : this.fill === 2 ? "white"
-                  : "lightgray";
+      shape.fill =
+        this.fill === 1
+          ? colors[this.color - 1]
+          : this.fill === 2
+          ? "white"
+          : "lightgray";
       shape.stroke = colors[this.color - 1];
       shape.linewidth = 4;
       this.card.add(shape);
     }
   }
 
-/**
+  /**
    * Return true when point (px,py) is inside this card's rectangle.
    * Uses the stored this.x/this.y as the center of the card.
    */
   contains(px, py) {
-    console.log(this.x);
     const halfWidth = cardWidth / 2;
     const halfHeight = cardHeight / 2;
 
