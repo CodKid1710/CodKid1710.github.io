@@ -6,6 +6,7 @@
     <title>Set - The Game</title>
 
     <link rel="stylesheet" href="../../style.css">
+    <link rel="stylesheet" href="style.css">
 
     <script src="../../packages/two.min.js"></script>
     <script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
@@ -16,8 +17,24 @@
         <a href="#"> Learn how to play</a>
     </header>
     <main id="content">
+        <div id="game-info-overlay">
+            <p><strong>Game ID:</strong> <span id="game-id">N/A</span></p>
+            <p><strong>Role:</strong> <span id="player-role">N/A</span></p>
+        </div>
+
         <div id="game-container">
             <!-- Game board will be generated here -->
+        </div>
+
+        <div id="message-overlay">
+            <ul id="messages"></ul>
+        </div>
+
+        <div id="scoreboard-overlay">
+            <h3>Players</h3>
+            <ul id="scoreboard">
+                <!-- Player scores will go here -->
+            </ul>
         </div>
     </main>
     <footer>

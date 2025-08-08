@@ -32,7 +32,7 @@
       font-size: 2rem;
     }
 
-    #join-input {
+    input {
       font-size: 1.2rem;
       padding: 0.5rem;
       text-transform: uppercase;
@@ -46,9 +46,52 @@
   </header>
   <main id="content" class="container">
     <div class="card">
-      <button onclick="createGame()"><h2>Create Game</h2></button>
-      <button onclick="joinGame()"><h2>Join Game</h2></button>
-      <input id="join-input" maxlength="4" placeholder="Game ID">
+      <button onclick="createButtonPressed()"><h2>Create Game</h2></button>
+      <button onclick="joinButtonPressed()"><h2>Join Game</h2></button>
+      <input id="join-input" maxlength="4" placeholder="Game ID" style="display: none;">
+      <br id="newline">
+      <input id="name-input" placeholder="Your Name" />
+      <script>
+            let joinInput = document.getElementById("join-input");
+            let nameInput = document.getElementById("name-input");
+            let newline = document.getElementById("newline");
+            function joinButtonPressed() {
+                if (joinInput.style.display == "none") {
+                  newline.style.display = "none";
+                  joinInput.style.display = "block";
+                } else if (joinInput.value != "") {
+                    if (joinInput.value.length == 4) {
+                      if (nameInput.value.length > 0) {
+                        joinGame(); 
+                      } else {
+                        nameInput.style.borderColor = "red"; 
+                        setTimeout(() => {
+                          nameInput.style.borderColor = "#facc15";
+                        }, 1500);
+                      }
+                    } else {
+                      joinInput.style.borderColor = "red";
+                      setTimeout(() => {
+                        joinInput.style.borderColor = "#facc15";
+                      }, 1500);
+                    }
+                } else {
+                    joinInput.style.display = "none";
+                    newline.style.display = "block";
+                }
+            }
+
+            function createButtonPressed() {
+              if (nameInput.value.length > 0) {
+                createGame(); 
+              } else {
+                nameInput.style.borderColor = "red"; 
+                setTimeout(() => {
+                  nameInput.style.borderColor = "#facc15";
+                }, 1500);
+              }
+            }
+      </script>
     </div>
   </main>
   <footer>
