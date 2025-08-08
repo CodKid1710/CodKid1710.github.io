@@ -194,6 +194,7 @@ function connectToGame() {
           cards[i] = new Card(convertToProperties(data.indexs[i]));
         }
       }
+      renderGame();
 
       players = [];
       data.players.forEach(player => {
@@ -300,10 +301,7 @@ function sendGameState() {
   }
 }
 
-/**
- * Initialize and render the game board
- */
-function startGame() {
+function renderGame() {
   // Generate and render cards
   console.log("started");
   for (let i = 0; i < rows; i++) {
@@ -315,11 +313,17 @@ function startGame() {
         cards[IX(i, j)] = new Card(
           convertToProperties(Math.floor(Math.random() * 81)));
       }
-      
-      console.log(cards[IX(i, j)]);
+
       cards[IX(i, j)].render(x, y);
     }
   }
+}
+
+/**
+ * Initialize and render the game board
+ */
+function startGame() {
+  renderGame();
 
   // Click event handler for card selection
   gameContainer.addEventListener("click", function (event) {
@@ -453,64 +457,78 @@ function sendMessage(text) {
 }
 
 // ========================
-// CARD CLASS
+// CARD CLASS (uses _center for hit testing)
 // ========================
 class Card {
   constructor(props) {
     this.number = props[0];
-    this.color = props[1];
-    this.fill = props[2];
-    this.shape = props[3];
+    this.color  = props[1];
+    this.fill   = props[2];
+    this.shape  = props[3];
 
     this.selected = false;
-    this.card = null;
+    this.card     = null; // Two.js group
+    this._center = null;
+    this.x;           // last render x
+    this.y;           // last render y
   }
 
-  /** Return readable card properties */
   getProperties() {
     return {
       number: this.number,
-      color: this.color === 1 ? "red" : this.color === 2 ? "green" : "purple",
-      fill: this.fill === 1 ? "filled" : this.fill === 2 ? "empty" : "stripped",
-      shape:
-        this.shape === 1 ? "rect" : this.shape === 2 ? "ellipse" : "diamond",
+      color:  this.color === 1 ? "red" : this.color === 2 ? "green" : "purple",
+      fill:   this.fill === 1 ? "filled" : this.fill === 2 ? "empty" : "striped",
+      shape:  this.shape === 1 ? "rect" : this.shape === 2 ? "ellipse" : "diamond",
     };
   }
 
-  /** Return raw numeric properties */
   getRawProperties() {
     return {
       number: this.number,
-      color: this.color,
-      fill: this.fill,
-      shape: this.shape,
+      color:  this.color,
+      fill:   this.fill,
+      shape:  this.shape,
     };
   }
 
-  /** Set properties directly from numeric array */
   setRawProperties(props) {
     this.number = props[0];
-    this.color = props[1];
-    this.fill = props[2];
-    this.shape = props[3];
+    this.color  = props[1];
+    this.fill   = props[2];
+    this.shape  = props[3];
   }
 
-  /** Render card using Two.js at given coordinates */
+  /**
+   * Render the card using Two.js.
+   * We DO NOT set group.translation here (that changed layout earlier for you).
+   * Instead we draw shapes at absolute x,y (as before) and store _center for hit testing.
+   */
   render(x, y) {
-    console.log("rendering");
+    if (typeof two === "undefined") {
+      console.error("Two.js instance (two) is not available.");
+      return;
+    }
+    console.log(this);
+    // Save position
+    this.x = x;
+    this.y = y;
+
     const h = cardHeight / 6;
     const w = cardWidth / 3;
     const colors = ["red", "green", "purple"];
+
+    // Make a fresh group so re-render doesn't duplicate
+    if (this.card) two.remove(this.card);
     this.card = two.makeGroup();
 
-    // Card background
-    const card = two.makeRoundedRectangle(x, y, cardWidth, cardHeight, 5);
-    card.fill = "white";
-    card.stroke = "black";
-    card.linewidth = 2;
-    this.card.add(card);
+    // Card background at absolute coords (same as before)
+    const bg = two.makeRoundedRectangle(x, y, cardWidth, cardHeight, 5);
+    bg.fill = "white";
+    bg.stroke = "black";
+    bg.linewidth = 2;
+    this.card.add(bg);
 
-    // Add shapes
+    // Add shapes (placed at absolute coords)
     for (let i = 0; i < this.number; i++) {
       const cy = y + (i - (this.number - 1) / 2) * h * 1.5;
       let shape;
@@ -534,36 +552,27 @@ class Card {
         continue;
       }
 
-      shape.fill =
-        this.fill === 1
-          ? colors[this.color - 1]
-          : this.fill === 2
-          ? "white"
-          : "lightgray";
+      shape.fill = this.fill === 1 ? colors[this.color - 1]
+                  : this.fill === 2 ? "white"
+                  : "lightgray";
       shape.stroke = colors[this.color - 1];
       shape.linewidth = 4;
       this.card.add(shape);
     }
-
-    this.card._center = { x, y };
   }
 
-  /** Check if (x,y) point is inside this card */
-  contains(x, y) {
-    if (!this.card) {
-      console.warn("contains() called before render()");
-      return false;
-    }
-    const cx = this.card._center.x;
-    const cy = this.card._center.y;
+/**
+   * Return true when point (px,py) is inside this card's rectangle.
+   * Uses the stored this.x/this.y as the center of the card.
+   */
+  contains(px, py) {
+    console.log(this.x);
+    const halfWidth = cardWidth / 2;
+    const halfHeight = cardHeight / 2;
 
-    console.log("contains ", cx, cy);
+    const inX = px >= this.x - halfWidth && px <= this.x + halfWidth;
+    const inY = py >= this.y - halfHeight && py <= this.y + halfHeight;
 
-    return (
-      x >= cx - cardWidth / 2 &&
-      x <= cx + cardWidth / 2 &&
-      y >= cy - cardHeight / 2 &&
-      y <= cy + cardHeight / 2
-    );
+    return inX && inY;
   }
 }
