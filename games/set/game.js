@@ -179,8 +179,20 @@ function connectToGame() {
       });
       let valid = checkSet(_selectedCards);
       let userId = data.userId;
+
+      if (valid == 1) {
+        data.indexs.forEach((index) => {
+          findCard(index).setRawProperties(
+            convertToProperties(Math.floor(Math.random() * 81))
+          );
+        });
+        sendMessage("Valid Set found");
+        sendGameState();
+      }
+
       channel.trigger("client-found-set-response", { valid, userId });
       updatePlayerScore(userId, valid);
+      sendMessage(findPlayer(userId).name + " recieved " + valid + " points");
       updatePlayers(players);
     });
   }
@@ -196,6 +208,7 @@ function connectToGame() {
       }
     }
     renderGame();
+    two.update();
 
     players = [];
     data.players.forEach((player) => {
@@ -210,7 +223,7 @@ function connectToGame() {
 
     updatePlayerScore(_userId, valid);
     updatePlayers(players);
-    sendMessage(findPlayer(_userId).name + " recived " + valid + "points");
+    sendMessage(findPlayer(_userId).name + " recived " + valid + " points");
     if (userId == _userId) {
       let mainText = null;
 
@@ -303,7 +316,8 @@ function renderGame() {
       const x = (j + 1) * cardWidth * 1.2 + width / 2 - 3 * cardWidth;
       const y = (i + 1) * cardHeight * 1.2 + height / 2 - 2.4 * cardHeight;
 
-      if (isHost) {
+      console.log(cards.length);
+      if (isHost && cards.length < 12) {
         cards[IX(i, j)] = new Card(
           convertToProperties(Math.floor(Math.random() * 81))
         );
@@ -350,6 +364,52 @@ function startGame() {
           } else {
             let valid = checkSet(selectedCards);
             channel.trigger("client-found-set-response", { valid, userId });
+
+            updatePlayerScore(userId, valid);
+            updatePlayers(players);
+            sendMessage(
+              findPlayer(userId).name + " recived " + valid + " points"
+            );
+
+            let mainText = null;
+
+            if (valid == 1) {
+              console.log(selectedCards.length);
+              selectedCards.forEach((sCard) => {
+                findCard(convertToIndex(sCard)).setRawProperties(
+                  convertToProperties(Math.floor(Math.random() * 81))
+                );
+                console.log("1");
+              });
+              renderGame();
+              two.update();
+
+              sendMessage("Valid Set found");
+              sendGameState();
+
+              mainText = two.makeText(
+                "Set is Correct. +1 Point",
+                width / 2,
+                height / 2
+              );
+              mainText.fill = "#39ff14";
+              mainText.size = Math.max(width, height) / 20;
+              mainText.stroke = "#24a30eff";
+            } else {
+              mainText = two.makeText(
+                "Set is Incorrect. -1 Point",
+                width / 2,
+                height / 2
+              );
+              mainText.fill = "#ff1414ff";
+              mainText.size = Math.max(width, height) / 20;
+              mainText.stroke = "#a30e0eff";
+            }
+
+            setTimeout(() => {
+              two.remove(mainText);
+              two.update();
+            }, 1500);
           }
 
           selectedCards.forEach((sCard) => {
@@ -450,6 +510,10 @@ function sendMessage(text) {
 
 function findPlayer(userId) {
   return players.find((p) => p.userId === userId);
+}
+
+function findCard(idx) {
+  return cards.find((c) => convertToIndex(c) === idx);
 }
 
 // ========================
