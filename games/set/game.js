@@ -180,20 +180,61 @@ function connectToGame() {
       let valid = checkSet(_selectedCards);
       let userId = data.userId;
 
+      cols = cards.length / 3;
+      console.log(cards.length);
       if (valid == 1) {
-        data.indexs.forEach((index) => {
-          findCard(index).setRawProperties(
-            convertToProperties(Math.floor(Math.random() * 81))
-          );
-        });
+        console.log(cols);
+        if (cols == 4) {
+          data.indexs.forEach((index) => {
+            findCard(index).setRawProperties(
+              convertToProperties(Math.floor(Math.random() * 81))
+            );
+          });
+        } else {
+          console.log("More than 4 cols: ", cols);
+          cols -= 1;
+
+          console.log(cards.length);
+          data.indexs.forEach((index) => {
+            cards.splice(cards.indexOf(findCard(index)), 1);
+          });
+          console.log(cards.length, cols);
+          cols = cards.length / 3;
+          console.log(cols);
+        }
         sendMessage("Valid Set found");
         sendGameState();
       }
+
+      two.clear();
+      renderGame();
+      two.update();
 
       channel.trigger("client-found-set-response", { valid, userId });
       updatePlayerScore(userId, valid);
       sendMessage(findPlayer(userId).name + " recieved " + valid + " points");
       updatePlayers(players);
+    });
+
+    channel.bind("client-toggle-add-cards", (data) => {
+      addCardsUserId.add(data.userId);
+
+      // Calculate percentage
+      const percent = Math.round((addCardsUserId.length / players.length) * 100);
+
+      // Update UI
+      document.getElementById("add-cards-button").textContent =
+        percent + "% of players want to add 3 cards";
+
+      // If 75% or more, host adds cards and resets votes
+      if (percent >= 75 && isHost) {
+        addCardsUserId == [];
+        document.getElementById(
+          "add-cards-button"
+        ).textContent = `Add 3 Cards (${addCardsUserId.length}/${players.length})`;
+        addCards();
+        channel.trigger("client-clear-add-cards-votes", {});
+      }
     });
   }
   channel.bind("client-game-state", (data) => {
@@ -203,10 +244,14 @@ function connectToGame() {
       }
       startGame();
     } else {
+      cards = [];
       for (let i = 0; i < data.indexs.length; i++) {
         cards[i] = new Card(convertToProperties(data.indexs[i]));
       }
     }
+
+    cols = cards.length / 3;
+    two.clear();
     renderGame();
     two.update();
 
@@ -254,6 +299,11 @@ function connectToGame() {
     }
   });
 
+  channel.bind("client-clear-add-cards-votes", () => {
+    addCardsUserId.clear();
+    document.getElementById("add-cards-vote-status").textContent = "";
+  });
+
   document.getElementById("game-id").textContent = gameId;
   document.getElementById("player-role").textContent = isHost
     ? "Host"
@@ -299,6 +349,13 @@ function updatePlayers(players) {
   });
 }
 
+function voteAddCards() {
+  // Prevent double voting
+  if (addCardsUserId.has(userId)) return;
+
+  channel.trigger("client-add-cards-vote", { userId });
+}
+
 /**
  * Send current game state (card data) to all clients
  */
@@ -313,13 +370,15 @@ function renderGame() {
   // Generate and render cards
   for (let i = 0; i < rows; i++) {
     for (let j = 0; j < cols; j++) {
-      const x = (j + 1) * cardWidth * 1.2 + width / 2 - 3 * cardWidth;
+      // cols-0.9
+      const x =
+        (j + 0.5) * cardWidth * 1.2 + width / 2 - (cols / 1.6) * cardWidth;
       const y = (i + 1) * cardHeight * 1.2 + height / 2 - 2.4 * cardHeight;
 
-      console.log(cards.length);
-      if (isHost && cards.length < 12) {
-        cards[IX(i, j)] = new Card(
-          convertToProperties(Math.floor(Math.random() * 81))
+      if (isHost && cards.length == IX(i, j)) {
+        console.log("Added Card");
+        cards.push(
+          new Card(convertToProperties(Math.floor(Math.random() * 81)))
         );
       }
 
@@ -374,13 +433,25 @@ function startGame() {
             let mainText = null;
 
             if (valid == 1) {
-              console.log(selectedCards.length);
-              selectedCards.forEach((sCard) => {
-                findCard(convertToIndex(sCard)).setRawProperties(
-                  convertToProperties(Math.floor(Math.random() * 81))
-                );
-                console.log("1");
-              });
+              if (cards.length == 12) {
+                selectedCards.forEach((sCard) => {
+                  findCard(convertToIndex(sCard)).setRawProperties(
+                    convertToProperties(Math.floor(Math.random() * 81))
+                  );
+                });
+              } else {
+                cols -= 1;
+
+                selectedCards.forEach((sCard) => {
+                  const index = cards.indexOf(sCard);
+                  if (index == -1) {
+                    console.log("Couldn't find card");
+                  }
+                  cards.splice(index, 1);
+                });
+              }
+
+              two.clear();
               renderGame();
               two.update();
 
@@ -454,6 +525,13 @@ function checkSet(sCards) {
   return 1;
 }
 
+function addCards() {
+  cols += 1;
+
+  renderGame();
+  two.update();
+}
+
 // ========================
 // UTILITY FUNCTIONS
 // ========================
@@ -462,7 +540,7 @@ function checkSet(sCards) {
  * Convert grid coordinates to a 1D array index
  */
 function IX(x, y) {
-  return x * 4 + y;
+  return x * cols + y;
 }
 
 /**
