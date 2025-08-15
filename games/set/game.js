@@ -382,6 +382,12 @@ function calculateVotePercentage() {
     btn.style.color = text;
   }
 
+  if (isHost && percent >= 75) {
+    clearVotesEverywhere();
+    addCards();
+    sendGameState(); // Immediately sync state to all players
+  }
+
   return percent;
 }
 
