@@ -35,6 +35,9 @@ let players = [];
 
 let width, height, rows, cols, cardHeight, cardWidth;
 
+// Track add-3-cards votes (userIds)
+let addCardsUserId = new Set();
+
 // ========================
 // Detect if we're on game.html and auto-connect
 // ========================
@@ -138,6 +141,8 @@ function connectToGame() {
 
     if (isHost) {
       startGame();
+      // initialize vote label for host view
+      updateVoteStatus();
     }
   });
 
@@ -147,11 +152,12 @@ function connectToGame() {
 
     if (isHost) {
       players.push(new Player(member.info.name, member.id));
+      // Recompute % with new denominator
+      updateVoteStatus();
       sendGameState();
     }
 
     updatePlayers(players);
-    sendGameState();
   });
 
   channel.bind("pusher:member_removed", (member) => {
@@ -159,18 +165,25 @@ function connectToGame() {
     sendMessage("Player left: " + member.info.name);
 
     if (isHost) {
+      // remove from players list
       for (let i = 0; i < players.length; i++) {
         if (players[i].userId == member.id) {
           players.splice(i, 1);
+          break;
         }
       }
+      // remove vote if they had voted and recompute %
+      addCardsUserId.delete(member.id);
+      updateVoteStatus();
+      sendGameState();
     }
 
     updatePlayers(players);
-    sendGameState();
   });
 
-  // Host-specific listeners
+  // ========================
+  // HOST-ONLY LISTENERS
+  // ========================
   if (isHost) {
     channel.bind("client-found-set", (data) => {
       let _selectedCards = [];
@@ -181,9 +194,7 @@ function connectToGame() {
       let userId = data.userId;
 
       cols = cards.length / 3;
-      console.log(cards.length);
       if (valid == 1) {
-        console.log(cols);
         if (cols == 4) {
           data.indexs.forEach((index) => {
             findCard(index).setRawProperties(
@@ -191,16 +202,11 @@ function connectToGame() {
             );
           });
         } else {
-          console.log("More than 4 cols: ", cols);
           cols -= 1;
-
-          console.log(cards.length);
           data.indexs.forEach((index) => {
             cards.splice(cards.indexOf(findCard(index)), 1);
           });
-          console.log(cards.length, cols);
           cols = cards.length / 3;
-          console.log(cols);
         }
         sendMessage("Valid Set found");
         sendGameState();
@@ -210,33 +216,39 @@ function connectToGame() {
       renderGame();
       two.update();
 
+      clearVotesEverywhere();
       channel.trigger("client-found-set-response", { valid, userId });
       updatePlayerScore(userId, valid);
       sendMessage(findPlayer(userId).name + " recieved " + valid + " points");
       updatePlayers(players);
     });
 
-    channel.bind("client-toggle-add-cards", (data) => {
+    // Receive client votes
+    channel.bind("client-add-cards-vote", (data) => {
       addCardsUserId.add(data.userId);
+      onVotesChangedMaybeAdd();
+    });
 
-      // Calculate percentage
-      const percent = Math.round((addCardsUserId.length / players.length) * 100);
-
-      // Update UI
-      document.getElementById("add-cards-button").textContent =
-        percent + "% of players want to add 3 cards";
-
-      // If 75% or more, host adds cards and resets votes
-      if (percent >= 75 && isHost) {
-        addCardsUserId == [];
-        document.getElementById(
-          "add-cards-button"
-        ).textContent = `Add 3 Cards (${addCardsUserId.length}/${players.length})`;
-        addCards();
-        channel.trigger("client-clear-add-cards-votes", {});
-      }
+    channel.bind("client-add-cards-unvote", (data) => {
+      addCardsUserId.delete(data.userId);
+      onVotesChangedMaybeAdd();
     });
   }
+
+  // ========================
+  // SHARED LISTENERS
+  // ========================
+  channel.bind("client-update-add-cards-votes", (data) => {
+    const btn = document.getElementById("add-cards-button");
+    if (btn) btn.textContent = `Add 3 Cards (${data.percent}%)`;
+  });
+
+  channel.bind("client-clear-add-cards-votes", () => {
+    addCardsUserId.clear();
+    const btn = document.getElementById("add-cards-button");
+    if (btn) btn.textContent = "Add 3 Cards (0%)";
+  });
+
   channel.bind("client-game-state", (data) => {
     if (cards.length === 0) {
       for (let i = 0; i < data.indexs.length; i++) {
@@ -260,6 +272,12 @@ function connectToGame() {
       players.push(new Player(player.name, player.userId, player.score));
     });
     updatePlayers(players);
+
+    // Update vote UI for everyone based on host's state
+    if (data.votes) {
+      const btn = document.getElementById("add-cards-button");
+      if (btn) btn.textContent = `Add 3 Cards (${data.votes.percent}%)`;
+    }
   });
 
   channel.bind("client-found-set-response", (data) => {
@@ -299,70 +317,89 @@ function connectToGame() {
     }
   });
 
-  channel.bind("client-clear-add-cards-votes", () => {
-    addCardsUserId.clear();
-    document.getElementById("add-cards-vote-status").textContent = "";
-  });
-
   document.getElementById("game-id").textContent = gameId;
   document.getElementById("player-role").textContent = isHost
     ? "Host"
     : "Client";
 }
 
-function updatePlayerScore(userId, delta) {
-  // Find the player by ID
-  const player = players.find((p) => p.userId === userId);
-
-  if (player) {
-    player.score += delta; // Add or subtract based on delta
-    console.log(`Updated ${player.name}'s score to ${player.score}`);
+// ========================
+// VOTING BUTTON FUNCTION (toggle)
+// ========================
+function voteAddCards() {
+  // Host updates locally (client events don't echo to sender)
+  if (isHost) {
+    if (addCardsUserId.has(userId)) {
+      addCardsUserId.delete(userId);
+    } else {
+      addCardsUserId.add(userId);
+    }
+    onVotesChangedMaybeAdd();
   } else {
-    console.warn(`Player with ID ${userId} not found.`);
+    // Clients notify the host
+    if (addCardsUserId.has(userId)) {
+      channel.trigger("client-add-cards-unvote", { userId });
+    } else {
+      channel.trigger("client-add-cards-vote", { userId });
+    }
   }
 }
 
-function updatePlayers(players) {
-  let playerList = document.getElementById("scoreboard");
-  playerList.innerHTML = "";
+// ========================
+// Vote helpers
+// ========================
+function updateVoteStatus() {
+  const percent =
+    players.length > 0
+      ? Math.round((addCardsUserId.size / players.length) * 100)
+      : 0;
 
-  players.forEach((player) => {
-    const playerBar = document.createElement("li");
+  const btn = document.getElementById("add-cards-button");
+  if (btn) btn.textContent = `Add 3 Cards (${percent}%)`;
 
-    // Highlight your own name
-    const nameSpan = document.createElement("span");
-    nameSpan.textContent = player.name;
-    if (player.userId === userId) {
-      nameSpan.style.fontWeight = "bold";
-      nameSpan.style.color = "#d3ffccff"; // neon green highlight
-    }
-
-    // Score aligned to the right
-    const scoreSpan = document.createElement("span");
-    scoreSpan.textContent = player.score ?? 0;
-    scoreSpan.style.float = "right";
-
-    playerBar.appendChild(nameSpan);
-    playerBar.appendChild(scoreSpan);
-
-    playerList.appendChild(playerBar);
-  });
+  // Host informs everyone of the latest percent
+  if (channel && isHost) {
+    channel.trigger("client-update-add-cards-votes", {
+      percent,
+      count: addCardsUserId.size,
+      total: players.length,
+    });
+  }
+  return percent;
 }
 
-function voteAddCards() {
-  // Prevent double voting
-  if (addCardsUserId.has(userId)) return;
+function clearVotesEverywhere() {
+  addCardsUserId.clear();
+  updateVoteStatus(); // will also broadcast 0%
+  if (channel && isHost) {
+    channel.trigger("client-clear-add-cards-votes", {}, { exclude_self: false });
+  }
+}
 
-  channel.trigger("client-add-cards-vote", { userId });
+function onVotesChangedMaybeAdd() {
+  const percent = updateVoteStatus();
+  if (isHost && percent >= 75) {
+    clearVotesEverywhere();
+    addCards();
+  }
 }
 
 /**
  * Send current game state (card data) to all clients
+ * Also include vote info so late joiners see current %.
  */
 function sendGameState() {
   if (isHost && channel) {
     let indexs = cards.map((card) => convertToIndex(card.getRawProperties()));
-    channel.trigger("client-game-state", { indexs, players });
+    const votes = {
+      count: addCardsUserId.size,
+      total: players.length,
+      percent:
+        players.length > 0
+          ? Math.round((addCardsUserId.size / players.length) * 100)
+          : 0,
+    };
+    channel.trigger("client-game-state", { indexs, players, votes });
   }
 }
 
@@ -370,15 +407,17 @@ function renderGame() {
   // Generate and render cards
   for (let i = 0; i < rows; i++) {
     for (let j = 0; j < cols; j++) {
-      // cols-0.9
       const x =
         (j + 0.5) * cardWidth * 1.2 + width / 2 - (cols / 1.6) * cardWidth;
       const y = (i + 1) * cardHeight * 1.2 + height / 2 - 2.4 * cardHeight;
 
       if (isHost && cards.length == IX(i, j)) {
-        console.log("Added Card");
+        let idx;
+        do {
+          idx = Math.floor(Math.random() * 81)
+        } while (findCard(idx) != undefined);
         cards.push(
-          new Card(convertToProperties(Math.floor(Math.random() * 81)))
+          new Card(convertToProperties(idx))
         );
       }
 
@@ -419,7 +458,7 @@ function startGame() {
             selectedCards.forEach((selectedCard) => {
               indexs.push(convertToIndex(selectedCard));
             });
-            channel.trigger("client-found-set", { indexs, userId });
+            channel.trigger("client-found-set", { indexs, userId }, { exclude_self: false });
           } else {
             let valid = checkSet(selectedCards);
             channel.trigger("client-found-set-response", { valid, userId });
@@ -527,7 +566,6 @@ function checkSet(sCards) {
 
 function addCards() {
   cols += 1;
-
   renderGame();
   two.update();
 }
@@ -586,8 +624,40 @@ function sendMessage(text) {
   document.getElementById("messages").appendChild(li);
 }
 
-function findPlayer(userId) {
-  return players.find((p) => p.userId === userId);
+function updatePlayerScore(userId, delta) {
+  const player = players.find((p) => p.userId === userId);
+  if (player) {
+    player.score += delta;
+  }
+}
+
+function updatePlayers(playersArr) {
+  let playerList = document.getElementById("scoreboard");
+  playerList.innerHTML = "";
+
+  playersArr.forEach((player) => {
+    const playerBar = document.createElement("li");
+
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = player.name;
+    if (player.userId === userId) {
+      nameSpan.style.fontWeight = "bold";
+      nameSpan.style.color = "#d3ffccff";
+    }
+
+    const scoreSpan = document.createElement("span");
+    scoreSpan.textContent = player.score ?? 0;
+    scoreSpan.style.float = "right";
+
+    playerBar.appendChild(nameSpan);
+    playerBar.appendChild(scoreSpan);
+
+    playerList.appendChild(playerBar);
+  });
+}
+
+function findPlayer(_userId) {
+  return players.find((p) => p.userId === _userId);
 }
 
 function findCard(idx) {
@@ -595,7 +665,7 @@ function findCard(idx) {
 }
 
 // ========================
-// CARD CLASS (uses _center for hit testing)
+// CARD CLASS
 // ========================
 class Card {
   constructor(props) {
@@ -607,8 +677,8 @@ class Card {
     this.selected = false;
     this.card = null; // Two.js group
     this._center = null;
-    this.x; // last render x
-    this.y; // last render y
+    this.x;
+    this.y;
   }
 
   getProperties() {
@@ -637,17 +707,11 @@ class Card {
     this.shape = props[3];
   }
 
-  /**
-   * Render the card using Two.js.
-   * We DO NOT set group.translation here (that changed layout earlier for you).
-   * Instead we draw shapes at absolute x,y (as before) and store _center for hit testing.
-   */
   render(x, y) {
     if (typeof two === "undefined") {
       console.error("Two.js instance (two) is not available.");
       return;
     }
-    // Save position
     this.x = x;
     this.y = y;
 
@@ -655,18 +719,15 @@ class Card {
     const w = cardWidth / 3;
     const colors = ["red", "green", "purple"];
 
-    // Make a fresh group so re-render doesn't duplicate
     if (this.card) two.remove(this.card);
     this.card = two.makeGroup();
 
-    // Card background at absolute coords (same as before)
     const bg = two.makeRoundedRectangle(x, y, cardWidth, cardHeight, 5);
     bg.fill = "white";
     bg.stroke = "black";
     bg.linewidth = 2;
     this.card.add(bg);
 
-    // Add shapes (placed at absolute coords)
     for (let i = 0; i < this.number; i++) {
       const cy = y + (i - (this.number - 1) / 2) * h * 1.5;
       let shape;
@@ -702,10 +763,6 @@ class Card {
     }
   }
 
-  /**
-   * Return true when point (px,py) is inside this card's rectangle.
-   * Uses the stored this.x/this.y as the center of the card.
-   */
   contains(px, py) {
     const halfWidth = cardWidth / 2;
     const halfHeight = cardHeight / 2;
