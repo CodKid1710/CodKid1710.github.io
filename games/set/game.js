@@ -271,8 +271,6 @@ function connectToGame() {
     if (data.votes) {
       addCardsVoteUserId = data.votes;
 
-
-      const btn = document.getElementById("add-cards-button");
       updateVoteStatus();
     }
   });
@@ -348,8 +346,7 @@ function updateVoteStatus() {
       ? Math.round((addCardsVoteUserId.length / players.length) * 100)
       : 0;
 
-  const btn = document.getElementById("add-cards-button");
-  if (btn) btn.textContent = `Add 3 Cards (${percent}%)`;
+  calculateVotePercentage();
 
   // Host informs everyone of the latest percent
   if (channel && isHost) {
