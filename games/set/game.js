@@ -327,7 +327,7 @@ function voteAddCards() {
   // Host updates locally (client events don't echo to sender)
   if (isHost) {
     if (addCardsVoteUserId.indexOf(userId) != -1) {
-      addCardsVoteUserId.splice(addCardsVoteUserIds.indexOf(userId), 1);
+      addCardsVoteUserId.splice(addCardsVoteUserId.indexOf(userId), 1);
     } else {
       addCardsVoteUserId.push(userId);
     }
@@ -374,6 +374,17 @@ function calculateVotePercentage() {
   console.log(percent);
   const btn = document.getElementById("add-cards-button");
   if (btn) btn.textContent = `Add 3 Cards (${percent}%)`;
+  const text = "#1e293b";
+  const highlight = "#facc15";
+  if (addCardsVoteUserId.indexOf(userId) != -1) {
+    btn.style.border = `${highlight} solid 2px`;
+    btn.style.background = text;
+    btn.style.color = highlight;
+  } else {
+    btn.style.background = highlight;
+    btn.style.color = text;
+  }
+
   return percent;
 }
 
