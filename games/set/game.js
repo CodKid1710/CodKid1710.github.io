@@ -32,6 +32,7 @@ var pusher;
 let cards = [];
 let selectedCards = [];
 let players = [];
+let addCardsVoteUserId = [];
 
 let width, height, rows, cols, cardHeight, cardWidth;
 
@@ -136,50 +137,52 @@ function connectToGame() {
 
   channel = pusher.subscribe(`presence-${gameId}`);
 
-  channel.bind("pusher:subscription_succeeded", () => {
-    console.log(`Connected to game with ID ${gameId}`);
+  {
+    channel.bind("pusher:subscription_succeeded", () => {
+      console.log(`Connected to game with ID ${gameId}`);
 
-    if (isHost) {
-      startGame();
-      // initialize vote label for host view
-      updateVoteStatus();
-    }
-  });
-
-  channel.bind("pusher:member_added", (member) => {
-    console.log("Player joined:", member.info.name);
-    sendMessage("Player joined: " + member.info.name);
-
-    if (isHost) {
-      players.push(new Player(member.info.name, member.id));
-      // Recompute % with new denominator
-      updateVoteStatus();
-      sendGameState();
-    }
-
-    updatePlayers(players);
-  });
-
-  channel.bind("pusher:member_removed", (member) => {
-    console.log("Player left:", member.info.name);
-    sendMessage("Player left: " + member.info.name);
-
-    if (isHost) {
-      // remove from players list
-      for (let i = 0; i < players.length; i++) {
-        if (players[i].userId == member.id) {
-          players.splice(i, 1);
-          break;
-        }
+      if (isHost) {
+        startGame();
+        // initialize vote label for host view
+        updateVoteStatus();
       }
-      // remove vote if they had voted and recompute %
-      addCardsUserId.delete(member.id);
-      updateVoteStatus();
-      sendGameState();
-    }
+    });
 
-    updatePlayers(players);
-  });
+    channel.bind("pusher:member_added", (member) => {
+      console.log("Player joined:", member.info.name);
+      sendMessage("Player joined: " + member.info.name);
+
+      if (isHost) {
+        players.push(new Player(member.info.name, member.id));
+        // Recompute % with new denominator
+        updateVoteStatus();
+        sendGameState();
+      }
+
+      updatePlayers(players);
+    });
+
+    channel.bind("pusher:member_removed", (member) => {
+      console.log("Player left:", member.info.name);
+      sendMessage("Player left: " + member.info.name);
+
+      if (isHost) {
+        // remove from players list
+        for (let i = 0; i < players.length; i++) {
+          if (players[i].userId == member.id) {
+            players.splice(i, 1);
+            break;
+          }
+        }
+        // remove vote if they had voted and recompute %
+        addCardsUserId.delete(member.id);
+        updateVoteStatus();
+        sendGameState();
+      }
+
+      updatePlayers(players);
+    });
+  }
 
   // ========================
   // HOST-ONLY LISTENERS
@@ -224,31 +227,22 @@ function connectToGame() {
     });
 
     // Receive client votes
-    channel.bind("client-add-cards-vote", (data) => {
-      addCardsUserId.add(data.userId);
+    channel.bind("client-toggle-card-vote", (data) => {
+      console.log(data, "Hello");
+      if (addCardsVoteUserId.indexOf(data.userId) != -1) {
+        addCardsVoteUserId.splice(addCardsVoteUserId.indexOf(data.userId), 1);
+      } else {
+        addCardsVoteUserId.push(data.userId);
+      }
+      console.log(addCardsVoteUserId);
       onVotesChangedMaybeAdd();
-    });
-
-    channel.bind("client-add-cards-unvote", (data) => {
-      addCardsUserId.delete(data.userId);
-      onVotesChangedMaybeAdd();
+      sendGameState();
     });
   }
 
   // ========================
   // SHARED LISTENERS
   // ========================
-  channel.bind("client-update-add-cards-votes", (data) => {
-    const btn = document.getElementById("add-cards-button");
-    if (btn) btn.textContent = `Add 3 Cards (${data.percent}%)`;
-  });
-
-  channel.bind("client-clear-add-cards-votes", () => {
-    addCardsUserId.clear();
-    const btn = document.getElementById("add-cards-button");
-    if (btn) btn.textContent = "Add 3 Cards (0%)";
-  });
-
   channel.bind("client-game-state", (data) => {
     if (cards.length === 0) {
       for (let i = 0; i < data.indexs.length; i++) {
@@ -275,8 +269,11 @@ function connectToGame() {
 
     // Update vote UI for everyone based on host's state
     if (data.votes) {
+      addCardsVoteUserId = data.votes;
+
+
       const btn = document.getElementById("add-cards-button");
-      if (btn) btn.textContent = `Add 3 Cards (${data.votes.percent}%)`;
+      updateVoteStatus();
     }
   });
 
@@ -329,19 +326,16 @@ function connectToGame() {
 function voteAddCards() {
   // Host updates locally (client events don't echo to sender)
   if (isHost) {
-    if (addCardsUserId.has(userId)) {
-      addCardsUserId.delete(userId);
+    if (addCardsVoteUserId.indexOf(userId) != -1) {
+      addCardsVoteUserId.splice(addCardsVoteUserIds.indexOf(userId), 1);
     } else {
-      addCardsUserId.add(userId);
+      addCardsVoteUserId.push(userId);
     }
     onVotesChangedMaybeAdd();
+    sendGameState();
   } else {
     // Clients notify the host
-    if (addCardsUserId.has(userId)) {
-      channel.trigger("client-add-cards-unvote", { userId });
-    } else {
-      channel.trigger("client-add-cards-vote", { userId });
-    }
+    channel.trigger("client-toggle-card-vote", { userId });
   }
 }
 
@@ -351,7 +345,7 @@ function voteAddCards() {
 function updateVoteStatus() {
   const percent =
     players.length > 0
-      ? Math.round((addCardsUserId.size / players.length) * 100)
+      ? Math.round((addCardsVoteUserId.length / players.length) * 100)
       : 0;
 
   const btn = document.getElementById("add-cards-button");
@@ -359,28 +353,37 @@ function updateVoteStatus() {
 
   // Host informs everyone of the latest percent
   if (channel && isHost) {
-    channel.trigger("client-update-add-cards-votes", {
-      percent,
-      count: addCardsUserId.size,
-      total: players.length,
-    });
+    sendGameState();
   }
   return percent;
 }
 
 function clearVotesEverywhere() {
-  addCardsUserId.clear();
-  updateVoteStatus(); // will also broadcast 0%
-  if (channel && isHost) {
-    channel.trigger("client-clear-add-cards-votes", {}, { exclude_self: false });
+  if (isHost) {
+    addCardsUserId = [];
+    sendGameState();
   }
 }
 
+function calculateVotePercentage() {
+  const percent =
+    players.length > 0
+      ? Math.round((addCardsVoteUserId.length / players.length) * 100)
+      : 0;
+
+  console.log(percent);
+  const btn = document.getElementById("add-cards-button");
+  if (btn) btn.textContent = `Add 3 Cards (${percent}%)`;
+  return percent;
+}
+
 function onVotesChangedMaybeAdd() {
-  const percent = updateVoteStatus();
+  const percent = calculateVotePercentage();
+
   if (isHost && percent >= 75) {
     clearVotesEverywhere();
     addCards();
+    sendGameState(); // Immediately sync state to all players
   }
 }
 
@@ -391,14 +394,7 @@ function onVotesChangedMaybeAdd() {
 function sendGameState() {
   if (isHost && channel) {
     let indexs = cards.map((card) => convertToIndex(card.getRawProperties()));
-    const votes = {
-      count: addCardsUserId.size,
-      total: players.length,
-      percent:
-        players.length > 0
-          ? Math.round((addCardsUserId.size / players.length) * 100)
-          : 0,
-    };
+    const votes = addCardsVoteUserId;
     channel.trigger("client-game-state", { indexs, players, votes });
   }
 }
@@ -414,11 +410,9 @@ function renderGame() {
       if (isHost && cards.length == IX(i, j)) {
         let idx;
         do {
-          idx = Math.floor(Math.random() * 81)
+          idx = Math.floor(Math.random() * 81);
         } while (findCard(idx) != undefined);
-        cards.push(
-          new Card(convertToProperties(idx))
-        );
+        cards.push(new Card(convertToProperties(idx)));
       }
 
       cards[IX(i, j)].render(x, y);
@@ -458,7 +452,11 @@ function startGame() {
             selectedCards.forEach((selectedCard) => {
               indexs.push(convertToIndex(selectedCard));
             });
-            channel.trigger("client-found-set", { indexs, userId }, { exclude_self: false });
+            channel.trigger(
+              "client-found-set",
+              { indexs, userId },
+              { exclude_self: false }
+            );
           } else {
             let valid = checkSet(selectedCards);
             channel.trigger("client-found-set-response", { valid, userId });
